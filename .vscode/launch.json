@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug babylonian_square_root",
+            "cargo": {
+                "args": ["build", "--example", "babylonian_square_root"],
+                "filter": {
+                    "name": "babylonian_square_root",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

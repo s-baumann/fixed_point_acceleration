@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, llvm-tools-preview
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # netlib-system links against the distro's libblas and liblapack.
+      # On Debian/Ubuntu, CBLAS is merged into libblas.so with no separate
+      # libcblas.so file, so we create local symlinks that satisfy the linker.
+      # The -L .cargo/lib rustflag in .cargo/config.toml points there.
+      - name: Install BLAS/LAPACK and create linker shims
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libblas-dev liblapack-dev libgfortran5
+          mkdir -p .cargo/lib
+          ln -sf /usr/lib/x86_64-linux-gnu/libblas.so  .cargo/lib/libcblas.so
+          ln -sf /usr/lib/x86_64-linux-gnu/liblapack.so .cargo/lib/liblapacke.so
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      # cargo-llvm-cov compiles the crate with coverage instrumentation and
+      # runs all tests in one pass, so a separate `cargo test` step is not needed.
+      - name: Test with coverage
+        run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+          fail_ci_if_error: false   # don't fail the build on upload network errors
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
