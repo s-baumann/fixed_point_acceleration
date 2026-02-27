@@ -16,8 +16,7 @@
 ///   ../../../library_julia/FixedPointAcceleration.jl/test/regression_refs.yaml
 /// Julia's rebase command writes the reference values there; both test suites
 /// then read the same file.
-
-use fixed_point_acceleration::{fixed_point, Algorithm, FixedPointOptions};
+use fixed_point_acceleration::{fixed_point, fixed_point_from, Algorithm, FixedPointOptions};
 use ndarray::{array, Array1};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -154,7 +153,83 @@ fn call_function(name: &str, x: &Array1<f64>) -> Array1<f64> {
     }
 }
 
-// ── Test ─────────────────────────────────────────────────────────────────────
+// ── Algorithm-switching regression ────────────────────────────────────────────
+//
+// Pins the exact behaviour of fixed_point_from:
+//   - the prior history is present verbatim at the start of the combined result
+//   - the new algorithm's k counter resets so period-based methods fire correctly
+//   - the combined run converges to the known fixed point
+//
+// Test function: g(x) = cos(x), fixed point (Dottie constant) ≈ 0.739085133215
+// Initial guess: x = [0.0]
+//
+// The first three Simple iterates are exact in f64:
+//   iter 0: input = 0.0,            output = cos(0.0)            = 1.0
+//   iter 1: input = 1.0,            output = cos(1.0)            (IEEE-deterministic)
+//   iter 2: input = cos(1.0),       output = cos(cos(1.0))       (IEEE-deterministic)
+
+#[test]
+fn algorithm_switch_simple_to_anderson() {
+    let g = |x: &Array1<f64>| x.mapv(f64::cos);
+
+    // ── Phase 1: 3 Simple iterations ─────────────────────────────────────────
+    let warm = fixed_point(
+        g,
+        array![0.0],
+        FixedPointOptions {
+            algorithm: Algorithm::Simple,
+            max_iter: 3,
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(warm.inputs.len(), 3);
+    assert_eq!(warm.outputs.len(), 3);
+
+    // Pin exact Simple iterates (IEEE-deterministic).
+    let cos1   = (1.0_f64).cos();
+    let cos_cos1 = cos1.cos();
+    assert_eq!(warm.inputs[0][0],  0.0);
+    assert_eq!(warm.outputs[0][0], 1.0);
+    assert_eq!(warm.inputs[1][0],  1.0);
+    assert_eq!(warm.outputs[1][0], cos1);
+    assert_eq!(warm.inputs[2][0],  cos1);
+    assert_eq!(warm.outputs[2][0], cos_cos1);
+
+    // ── Phase 2: continue with Anderson ──────────────────────────────────────
+    let result = fixed_point_from(
+        g,
+        warm,
+        FixedPointOptions {
+            algorithm: Algorithm::Anderson,
+            ..Default::default()
+        },
+    );
+
+    // Combined history begins with the exact prior iterates.
+    assert_eq!(result.inputs[0][0],  0.0);
+    assert_eq!(result.outputs[0][0], 1.0);
+    assert_eq!(result.inputs[1][0],  1.0);
+    assert_eq!(result.outputs[1][0], cos1);
+    assert_eq!(result.inputs[2][0],  cos1);
+    assert_eq!(result.outputs[2][0], cos_cos1);
+
+    // The first input of the Anderson phase is the last output of the warm-up.
+    assert_eq!(result.inputs[3][0], cos_cos1);
+
+    // Converged to the Dottie constant.
+    assert_eq!(result.status, "Reached Convergence Threshold");
+    let fp = result.outputs.last().unwrap()[0];
+    assert!((fp - 0.739_085_133_215_160_7).abs() < 1e-10,
+        "fixed point {fp} too far from Dottie constant");
+
+    // History is self-consistent throughout.
+    assert_eq!(result.inputs.len(), result.outputs.len());
+    assert_eq!(result.inputs.len(), result.convergence_vector.len());
+    assert!(result.inputs.len() > 3, "Anderson should have added iterations");
+}
+
+// ── Cross-language regression ─────────────────────────────────────────────────
 
 #[test]
 fn cross_language_regression() {

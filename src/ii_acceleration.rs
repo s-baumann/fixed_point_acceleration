@@ -1,5 +1,5 @@
 use ndarray::{Array1, Array2, s};
-use ndarray_linalg::{Solve, SVD};
+use linfa_linalg::svd::SVD;
 use crate::{Algorithm, FixedPointOptions};
 
 pub(crate) fn get_new_input(
@@ -14,7 +14,7 @@ pub(crate) fn get_new_input(
         Algorithm::Simple => last_output,
 
         Algorithm::Aitken => {
-            if k % 3 != 0 { return last_output; }
+            if !k.is_multiple_of(3) { return last_output; }
             let x   = &inputs[k-2];
             let fx  = &outputs[k-2];
             let ffx = &outputs[k-1];
@@ -25,7 +25,7 @@ pub(crate) fn get_new_input(
         },
 
         Algorithm::Newton => {
-            if k % 3 != 0 { return last_output; }
+            if !k.is_multiple_of(3) { return last_output; }
             let xk1  = &inputs[k-2];
             let fxk1 = &outputs[k-2];
             let gxk1 = fxk1 - xk1;
@@ -45,14 +45,14 @@ pub(crate) fn get_new_input(
 
         // Polynomial extrapolation methods — applied every extrapolation_period iterations
         Algorithm::MPE => {
-            if k % options.extrapolation_period != 0 { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
             let m = std::cmp::min(k, options.max_m);
             if m < 3 { return last_output; }
             perform_mpe(outputs, m).unwrap_or(last_output)
         },
 
         Algorithm::RRE => {
-            if k % options.extrapolation_period != 0 { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
             let m = std::cmp::min(k, options.max_m);
             if m < 4 { return last_output; }
             perform_rre(outputs, m).unwrap_or(last_output)
@@ -60,14 +60,14 @@ pub(crate) fn get_new_input(
 
         // Epsilon extrapolation methods — applied every extrapolation_period iterations
         Algorithm::SEA => {
-            if k % options.extrapolation_period != 0 { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
             let m = std::cmp::min(k, options.max_m);
             if m < 3 { return last_output; }
             perform_epsilon(outputs, m, true).unwrap_or(last_output)
         },
 
         Algorithm::VEA => {
-            if k % options.extrapolation_period != 0 { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
             let m = std::cmp::min(k, options.max_m);
             if m < 3 { return last_output; }
             perform_epsilon(outputs, m, false).unwrap_or(last_output)
@@ -132,18 +132,19 @@ fn perform_anderson(inputs: &[Array1<f64>], outputs: &[Array1<f64>], m: usize) -
     let n = residuals[0].len();
 
     let mut delta_f = Array2::<f64>::zeros((n, m - 1));
-    for j in 0..m - 1 {
-        let col = &residuals[j] - last_residual;
+    for (j, residual) in residuals.iter().enumerate().take(m - 1) {
+        let col = residual - last_residual;
         delta_f.column_mut(j).assign(&col);
     }
 
     let lhs = delta_f.t().dot(&delta_f);
     let rhs = -delta_f.t().dot(last_residual);
 
-    let c = match lhs.solve_into(rhs) {
-        Ok(c) => c,
-        Err(_) => return outputs.last().unwrap().clone(),
+    let c = match pseudoinverse(&lhs) {
+        Some(pinv) => pinv.dot(&rhs),
+        None => return outputs.last().unwrap().clone(),
     };
+    if !is_finite_array(&c) { return outputs.last().unwrap().clone(); }
 
     let c_sum: f64 = c.sum();
     let last_output = &outputs[k - 1];
@@ -234,7 +235,7 @@ fn perform_epsilon(outputs: &[Array1<f64>], m: usize, sea: bool) -> Option<Array
     let n = outputs[0].len();
 
     // Epsilon algorithm is only defined for an odd column count
-    let m_used = if m % 2 == 0 { m - 1 } else { m };
+    let m_used = if m.is_multiple_of(2) { m - 1 } else { m };
     if m_used < 3 { return None; }
 
     // Build initial iterate matrix (n × m_used)

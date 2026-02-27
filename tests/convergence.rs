@@ -7,8 +7,7 @@
 ///
 /// The cosine function is the most useful benchmark: it converges slowly under
 /// Simple iteration (~65 steps to 1e-10), so acceleration methods show a clear benefit.
-
-use fixed_point_acceleration::{fixed_point, Algorithm, FixedPointOptions};
+use fixed_point_acceleration::{fixed_point, fixed_point_from, Algorithm, FixedPointOptions};
 use ndarray::{array, Array1};
 
 // ── Known answers ─────────────────────────────────────────────────────────────
@@ -304,4 +303,53 @@ fn vea_faster_than_simple_on_cosine() {
     let simple = cosine_iter_count(Algorithm::Simple);
     let vea    = cosine_iter_count(Algorithm::VEA);
     assert!(vea < simple, "VEA ({vea} iters) should beat Simple ({simple} iters)");
+}
+
+// ── Algorithm switching via fixed_point_from ──────────────────────────────────
+
+#[test]
+fn switch_simple_to_anderson_cosine() {
+    // Warm up with 2 Simple iterations then hand off to Anderson.
+    let warm = fixed_point(cosine_fn, array![0.0], FixedPointOptions {
+        algorithm: Algorithm::Simple,
+        max_iter:  2,
+        ..Default::default()
+    });
+    // warm-up should NOT have converged (cosine takes ~65 Simple steps)
+    assert!(!converged(&warm.status));
+
+    let res = fixed_point_from(cosine_fn, warm, opts(Algorithm::Anderson));
+    assert!(converged(&res.status));
+    assert!((res.outputs.last().unwrap()[0] - DOTTIE).abs() < ANSWER_TOL);
+}
+
+#[test]
+fn switch_preserves_full_history() {
+    // The returned result should contain all iterates: prior + new.
+    let warm = fixed_point(cosine_fn, array![0.0], FixedPointOptions {
+        algorithm: Algorithm::Simple,
+        max_iter:  3,
+        ..Default::default()
+    });
+    let prior_len = warm.inputs.len();
+
+    let res = fixed_point_from(cosine_fn, warm, opts(Algorithm::Anderson));
+    assert!(res.inputs.len() > prior_len, "new iterates should be appended");
+    assert_eq!(res.inputs.len(), res.outputs.len());
+    assert_eq!(res.inputs.len(), res.convergence_vector.len());
+}
+
+#[test]
+fn new_algorithm_k_resets() {
+    // Aitken fires on iterations that are multiples-of-3 *within its own run*.
+    // If we hand off after 4 Simple steps, Aitken should still converge
+    // (k resets to 1 at the start of the Aitken run, so it fires at k=3,6,...).
+    let warm = fixed_point(cosine_fn, array![0.0], FixedPointOptions {
+        algorithm: Algorithm::Simple,
+        max_iter:  4,
+        ..Default::default()
+    });
+    let res = fixed_point_from(cosine_fn, warm, opts(Algorithm::Aitken));
+    assert!(converged(&res.status));
+    assert!((res.outputs.last().unwrap()[0] - DOTTIE).abs() < ANSWER_TOL);
 }

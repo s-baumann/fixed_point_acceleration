@@ -4,12 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-# The core array library
 ndarray = "0.15"
-
-# The linear algebra library (needed for Anderson acceleration)
-# We enable the "netlib" feature to give it a backend solver
-ndarray-linalg = { version = "0.16", features = ["netlib-system"] }
+linfa-linalg = "0.1"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -30,18 +30,55 @@ println!("Status: {}",   result.status);
 println!("Iterations: {}", result.inputs.len());
 ```
 
+## Switching algorithms mid-run
+
+`fixed_point_from` continues an existing result with a new algorithm. The full history is preserved in the returned result, and the new algorithm's iteration counter resets to 1 so period-based methods (Aitken, Newton) and window sizes (Anderson, MPE, …) behave correctly from the switch point.
+
+```rust
+use fixed_point_acceleration::{fixed_point, fixed_point_from, Algorithm, FixedPointOptions};
+use ndarray::array;
+
+let g = |x: &ndarray::Array1<f64>| array![x[0].cos()]; // fixed point ≈ 0.73909
+
+// Phase 1: a few plain-substitution steps to get away from the initial guess
+let warm = fixed_point(
+    g,
+    array![0.0],
+    FixedPointOptions {
+        algorithm: Algorithm::Simple,
+        max_iter:  5,
+        ..Default::default()
+    },
+);
+
+// Phase 2: hand off to Anderson — k resets to 1 at the switch point
+let result = fixed_point_from(
+    g,
+    warm,
+    FixedPointOptions {
+        algorithm: Algorithm::Anderson,
+        ..Default::default()
+    },
+);
+
+// result contains the combined history from both phases
+println!("Total iterations: {}", result.inputs.len());
+println!("Result: {:?}", result.outputs.last().unwrap()); // ≈ [0.73909]
+println!("Status: {}",   result.status);
+```
+
 ## Algorithms
 
-| Algorithm | Description | Minimum iterates |
-|-----------|-------------|-----------------|
-| `Simple`   | Successive substitution (Picard iteration) | 1 |
-| `Aitken`   | Aitken's Δ² extrapolation; applied every 3rd iteration | 3 |
-| `Newton`   | Secant-based acceleration; applied every 3rd iteration | 2 |
-| `Anderson` | Anderson mixing over a window of recent iterates | 2 |
-| `MPE`      | Minimal Polynomial Extrapolation | 3 |
-| `RRE`      | Reduced Rank Extrapolation | 4 |
-| `SEA`      | Scalar Epsilon Algorithm (Wynn ε, element-wise) | 3 |
-| `VEA`      | Vector Epsilon Algorithm (Wynn ε, pseudoinverse) | 3 |
+| Algorithm | Description |
+|-----------|-------------|
+| `Simple`   | Successive substitution (Picard iteration) |
+| `Aitken`   | Aitken's Δ² extrapolation; applied every 3rd iteration |
+| `Newton`   | Secant-based acceleration; applied every 3rd iteration |
+| `Anderson` | Anderson mixing over a window of recent iterates |
+| `MPE`      | Minimal Polynomial Extrapolation |
+| `RRE`      | Reduced Rank Extrapolation |
+| `SEA`      | Scalar Epsilon Algorithm (Wynn ε, element-wise) |
+| `VEA`      | Vector Epsilon Algorithm (Wynn ε, pseudoinverse) |
 
 `MPE`, `RRE`, `SEA`, and `VEA` are applied periodically every `extrapolation_period` iterations, using simple substitution in between.
 
@@ -70,19 +107,3 @@ pub struct FixedPointResults {
 }
 ```
 
-## System requirements
-
-The linear algebra backend (`ndarray-linalg`) links against the system LAPACK and BLAS libraries. Install them before building:
-
-```bash
-# Debian / Ubuntu
-sudo apt-get install libblas-dev liblapack-dev libgfortran5
-```
-
-On Debian/Ubuntu, CBLAS is merged into `libblas.so` rather than shipped as a separate file. The repository includes a `.cargo/config.toml` that points the linker at local shim symlinks. Create them once after cloning:
-
-```bash
-mkdir -p .cargo/lib
-ln -sf /usr/lib/x86_64-linux-gnu/libblas.so  .cargo/lib/libcblas.so
-ln -sf /usr/lib/x86_64-linux-gnu/liblapack.so .cargo/lib/liblapacke.so
-```
