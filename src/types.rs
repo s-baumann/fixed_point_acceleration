@@ -41,6 +41,17 @@ pub enum TerminationStatus {
     FunctionFailure,
 }
 
+impl std::fmt::Display for TerminationStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Converged            => write!(f, "Converged"),
+            Self::MaxIterationsReached => write!(f, "MaxIterationsReached"),
+            Self::NumericalFailure     => write!(f, "NumericalFailure"),
+            Self::FunctionFailure      => write!(f, "FunctionFailure"),
+        }
+    }
+}
+
 /// Configuration for [`fixed_point`](crate::fixed_point) and [`fixed_point_from`](crate::fixed_point_from).
 #[derive(Debug, Clone)]
 pub struct FixedPointOptions {

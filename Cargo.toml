@@ -5,6 +5,7 @@ edition = "2024"
 description = "Fixed-point iteration with acceleration algorithms (Anderson, Aitken, MPE, RRE, SEA, VEA)"
 license = "MIT"
 repository = "https://github.com/s-baumann/fixed_point_acceleration"
+readme = "README.md"
 keywords = ["fixed-point", "acceleration", "anderson", "numerical", "optimization"]
 categories = ["mathematics", "science", "algorithms"]
 

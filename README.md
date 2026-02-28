@@ -1,7 +1,7 @@
 # fixed_point_acceleration
 
 [![CI](https://github.com/s-baumann/fixed_point_acceleration/actions/workflows/ci.yml/badge.svg)](https://github.com/s-baumann/fixed_point_acceleration/actions/workflows/ci.yml)
-[![Coverage](https://codecov.io/gh/s-baumann/fixed_point_acceleration/branch/main/graph/badge.svg)](https://codecov.io/gh/s-baumann/fixed_point_acceleration)
+[![codecov](https://codecov.io/gh/s-baumann/fixed_point_acceleration/graph/badge.svg?token=tJASwGGy4l)](https://codecov.io/gh/s-baumann/fixed_point_acceleration)
 [![crates.io](https://img.shields.io/crates/v/fixed_point_acceleration.svg)](https://crates.io/crates/fixed_point_acceleration)
 
 A Rust library for finding fixed points of vector-valued functions using acceleration algorithms.
@@ -25,7 +25,7 @@ let result = fixed_point(
 );
 
 println!("Result: {:?}", result.outputs.last().unwrap()); // ≈ [3.16228]
-println!("Status: {}",   result.status);
+println!("Status: {}",   result.status);                 // Converged
 println!("Iterations: {}", result.inputs.len());
 ```
 
@@ -63,7 +63,7 @@ let result = fixed_point_from(
 // result contains the combined history from both phases
 println!("Total iterations: {}", result.inputs.len());
 println!("Result: {:?}", result.outputs.last().unwrap()); // ≈ [0.73909]
-println!("Status: {}",   result.status);
+println!("Status: {}",   result.status);                  // Converged
 ```
 
 ## Algorithms
@@ -91,7 +91,6 @@ FixedPointOptions {
     max_m:                10,                  // history window (Anderson/MPE/RRE/SEA/VEA)
     extrapolation_period: 7,                   // how often MPE/RRE/SEA/VEA fire
     dampening:            1.0,                 // step-size damping (1.0 = none)
-    print_reports:        false,               // print convergence each iteration
 }
 ```
 
@@ -102,7 +101,7 @@ pub struct FixedPointResults {
     pub inputs:             Vec<Array1<f64>>, // input  at each iteration
     pub outputs:            Vec<Array1<f64>>, // g(x)   at each iteration
     pub convergence_vector: Vec<f64>,         // mean |g(x) - x| at each iteration
-    pub status:             TerminationStatus, // Converged | MaxIterationsReached
+    pub status:             TerminationStatus, // Converged | MaxIterationsReached | NumericalFailure | FunctionFailure
 }
 ```
 
