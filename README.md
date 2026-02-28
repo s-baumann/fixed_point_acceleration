@@ -3,7 +3,6 @@
 [![CI](https://github.com/s-baumann/fixed_point_acceleration/actions/workflows/ci.yml/badge.svg)](https://github.com/s-baumann/fixed_point_acceleration/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/s-baumann/fixed_point_acceleration/branch/main/graph/badge.svg)](https://codecov.io/gh/s-baumann/fixed_point_acceleration)
 [![crates.io](https://img.shields.io/crates/v/fixed_point_acceleration.svg)](https://crates.io/crates/fixed_point_acceleration)
-[![docs.rs](https://docs.rs/fixed_point_acceleration/badge.svg)](https://docs.rs/fixed_point_acceleration)
 
 A Rust library for finding fixed points of vector-valued functions using acceleration algorithms.
 
@@ -103,7 +102,7 @@ pub struct FixedPointResults {
     pub inputs:             Vec<Array1<f64>>, // input  at each iteration
     pub outputs:            Vec<Array1<f64>>, // g(x)   at each iteration
     pub convergence_vector: Vec<f64>,         // mean |g(x) - x| at each iteration
-    pub status:             String,           // "Reached Convergence Threshold" | "Reached Max Iterations"
+    pub status:             TerminationStatus, // Converged | MaxIterationsReached
 }
 ```
 

@@ -1,5 +1,5 @@
 use ndarray::Array1;
-use crate::{FixedPointOptions, FixedPointResults};
+use crate::{FixedPointOptions, FixedPointResults, TerminationStatus};
 use crate::ii_acceleration::get_new_input;
 
 /// Find a fixed point of `func` starting from `x0`.
@@ -64,23 +64,26 @@ where
         outputs.push(current_output.clone());
         convergence_vector.push(convergence);
 
-        if options.print_reports {
-            println!("Iter: {} | Convergence: {:.2e}", iter, convergence);
-        }
+        log::debug!("Iter: {} | Convergence: {:.2e}", iter, convergence);
 
         if convergence < options.threshold {
             return FixedPointResults {
                 inputs, outputs, convergence_vector,
-                status: "Reached Convergence Threshold".to_string(),
+                status: TerminationStatus::Converged,
             };
         }
 
         // Slice to only this algorithm's history so k counts from 1
-        current_input = get_new_input(&inputs[prior_len..], &outputs[prior_len..], &options);
+        let proposed = get_new_input(&inputs[prior_len..], &outputs[prior_len..], &options);
+        current_input = if options.dampening == 1.0 {
+            proposed
+        } else {
+            inputs.last().unwrap() * (1.0 - options.dampening) + &proposed * options.dampening
+        };
     }
 
     FixedPointResults {
         inputs, outputs, convergence_vector,
-        status: "Reached Max Iterations".to_string(),
+        status: TerminationStatus::MaxIterationsReached,
     }
 }

@@ -12,6 +12,15 @@ pub enum Algorithm {
     SEA, // Scalar Epsilon Algorithm
 }
 
+/// Why the iteration loop stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TerminationStatus {
+    /// The mean absolute residual `|g(x) - x|` fell below `threshold`.
+    Converged,
+    /// The loop ran for `max_iter` iterations without converging.
+    MaxIterationsReached,
+}
+
 #[derive(Debug)]
 pub struct FixedPointOptions {
     pub algorithm: Algorithm,
@@ -20,7 +29,6 @@ pub struct FixedPointOptions {
     pub max_m: usize,
     pub extrapolation_period: usize,
     pub dampening: f64,
-    pub print_reports: bool,
 }
 
 impl Default for FixedPointOptions {
@@ -32,7 +40,6 @@ impl Default for FixedPointOptions {
             max_m: 10,
             extrapolation_period: 7,
             dampening: 1.0,
-            print_reports: false,
         }
     }
 }
@@ -42,5 +49,5 @@ pub struct FixedPointResults {
     pub inputs: Vec<Array1<f64>>,
     pub outputs: Vec<Array1<f64>>,
     pub convergence_vector: Vec<f64>,
-    pub status: String,
+    pub status: TerminationStatus,
 }

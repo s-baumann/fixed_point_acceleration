@@ -11,12 +11,11 @@ fn main() {
     let initial_guess = ndarray::array![1.0];
     let options = FixedPointOptions {
         algorithm: Algorithm::Newton,
-        print_reports: true,
         ..Default::default()
     };
 
     let result = fixed_point(babylonian, initial_guess, options);
 
     println!("Result: {:?}", result.outputs.last().unwrap());
-    println!("Status: {}", result.status);
+    println!("Status: {:?}", result.status);
 }

@@ -2,10 +2,16 @@
 name = "fixed_point_acceleration"
 version = "0.1.0"
 edition = "2024"
+description = "Fixed-point iteration with acceleration algorithms (Anderson, Aitken, MPE, RRE, SEA, VEA)"
+license = "MIT"
+repository = "https://github.com/s-baumann/fixed_point_acceleration"
+keywords = ["fixed-point", "acceleration", "anderson", "numerical", "optimization"]
+categories = ["mathematics", "science", "algorithms"]
 
 [dependencies]
 ndarray = "0.15"
 linfa-linalg = "0.1"
+log = "0.4"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }

@@ -7,7 +7,7 @@
 ///
 /// The cosine function is the most useful benchmark: it converges slowly under
 /// Simple iteration (~65 steps to 1e-10), so acceleration methods show a clear benefit.
-use fixed_point_acceleration::{fixed_point, fixed_point_from, Algorithm, FixedPointOptions};
+use fixed_point_acceleration::{fixed_point, fixed_point_from, Algorithm, FixedPointOptions, TerminationStatus};
 use ndarray::{array, Array1};
 
 // ── Known answers ─────────────────────────────────────────────────────────────
@@ -42,8 +42,8 @@ fn opts(alg: Algorithm) -> FixedPointOptions {
     FixedPointOptions { algorithm: alg, ..Default::default() }
 }
 
-fn converged(status: &str) -> bool {
-    status == "Reached Convergence Threshold"
+fn converged(status: &TerminationStatus) -> bool {
+    *status == TerminationStatus::Converged
 }
 
 // ── Structural invariants ─────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ fn max_iter_is_respected() {
         array![1.0],
         FixedPointOptions { algorithm: Algorithm::Simple, max_iter, ..Default::default() },
     );
-    assert_eq!(res.status, "Reached Max Iterations");
+    assert_eq!(res.status, TerminationStatus::MaxIterationsReached);
     assert_eq!(res.inputs.len(), max_iter);
 }
 
