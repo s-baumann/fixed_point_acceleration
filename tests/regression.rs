@@ -96,8 +96,10 @@ struct Refs {
 /// Map a Rust TerminationStatus to the Julia termination symbol string.
 fn rust_status_matches(status: &TerminationStatus, julia_status: &str) -> bool {
     let normalised = match status {
-        TerminationStatus::Converged => "ReachedConvergenceThreshold",
-        TerminationStatus::MaxIterationsReached => "ReachedMaxIter",
+        TerminationStatus::Converged             => "ReachedConvergenceThreshold",
+        TerminationStatus::MaxIterationsReached  => "ReachedMaxIter",
+        TerminationStatus::NumericalFailure      => "NumericalFailure",
+        TerminationStatus::FunctionFailure       => "FunctionFailure",
     };
     normalised == julia_status
 }
@@ -390,8 +392,10 @@ fn rebase_refs() {
 
             let fixed_pt = make_seq(&result.outputs.last().unwrap().to_vec());
             let status   = match result.status {
-                TerminationStatus::Converged          => "ReachedConvergenceThreshold",
+                TerminationStatus::Converged            => "ReachedConvergenceThreshold",
                 TerminationStatus::MaxIterationsReached => "ReachedMaxIter",
+                TerminationStatus::NumericalFailure     => "NumericalFailure",
+                TerminationStatus::FunctionFailure      => "FunctionFailure",
             };
 
             alg_entry["iterates"]              = Value::Sequence(iterates);

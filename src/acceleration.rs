@@ -2,30 +2,34 @@ use ndarray::{Array1, Array2, s};
 use linfa_linalg::svd::SVD;
 use crate::{Algorithm, FixedPointOptions};
 
+/// Returns `Some(next_input)` on success, or `None` if the acceleration step
+/// produced a non-finite value (signals `TerminationStatus::NumericalFailure`).
 pub(crate) fn get_new_input(
     inputs: &[Array1<f64>],
     outputs: &[Array1<f64>],
     options: &FixedPointOptions,
-) -> Array1<f64> {
+) -> Option<Array1<f64>> {
     let k = inputs.len();
     let last_output = outputs.last().unwrap().clone();
 
     match options.algorithm {
-        Algorithm::Simple => last_output,
+        Algorithm::Simple => Some(last_output),
 
         Algorithm::Aitken => {
-            if !k.is_multiple_of(3) { return last_output; }
+            if !k.is_multiple_of(3) { return Some(last_output); }
             let x   = &inputs[k-2];
             let fx  = &outputs[k-2];
             let ffx = &outputs[k-1];
 
             let numerator   = (fx - x).mapv(|v: f64| v.powi(2));
             let denominator = ffx - fx * 2.0 + x;
-            x - numerator / denominator
+            let result = x - numerator / denominator;
+            if !is_finite_array(&result) { return None; }
+            Some(result)
         },
 
         Algorithm::Newton => {
-            if !k.is_multiple_of(3) { return last_output; }
+            if !k.is_multiple_of(3) { return Some(last_output); }
             let xk1  = &inputs[k-2];
             let fxk1 = &outputs[k-2];
             let gxk1 = fxk1 - xk1;
@@ -34,43 +38,45 @@ pub(crate) fn get_new_input(
             let gxk  = fxk - xk;
             // Note: if x is a vector this is applied element-wise
             let derivative = (&gxk - &gxk1) / (xk - xk1);
-            xk - (gxk / derivative)
+            let result = xk - (gxk / derivative);
+            if !is_finite_array(&result) { return None; }
+            Some(result)
         },
 
         Algorithm::Anderson => {
             let m = std::cmp::min(k, options.max_m);
-            if m < 2 { return last_output; }
-            perform_anderson(inputs, outputs, m)
+            if m < 2 { return Some(last_output); }
+            Some(perform_anderson(inputs, outputs, m))
         },
 
         // Polynomial extrapolation methods — applied every extrapolation_period iterations
         Algorithm::MPE => {
-            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return Some(last_output); }
             let m = std::cmp::min(k, options.max_m);
-            if m < 3 { return last_output; }
-            perform_mpe(outputs, m).unwrap_or(last_output)
+            if m < 3 { return Some(last_output); }
+            Some(perform_mpe(outputs, m).unwrap_or(last_output))
         },
 
         Algorithm::RRE => {
-            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return Some(last_output); }
             let m = std::cmp::min(k, options.max_m);
-            if m < 4 { return last_output; }
-            perform_rre(outputs, m).unwrap_or(last_output)
+            if m < 4 { return Some(last_output); }
+            Some(perform_rre(outputs, m).unwrap_or(last_output))
         },
 
         // Epsilon extrapolation methods — applied every extrapolation_period iterations
         Algorithm::SEA => {
-            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return Some(last_output); }
             let m = std::cmp::min(k, options.max_m);
-            if m < 3 { return last_output; }
-            perform_epsilon(outputs, m, true).unwrap_or(last_output)
+            if m < 3 { return Some(last_output); }
+            Some(perform_epsilon(outputs, m, true).unwrap_or(last_output))
         },
 
         Algorithm::VEA => {
-            if !k.is_multiple_of(options.extrapolation_period) { return last_output; }
+            if !k.is_multiple_of(options.extrapolation_period) { return Some(last_output); }
             let m = std::cmp::min(k, options.max_m);
-            if m < 3 { return last_output; }
-            perform_epsilon(outputs, m, false).unwrap_or(last_output)
+            if m < 3 { return Some(last_output); }
+            Some(perform_epsilon(outputs, m, false).unwrap_or(last_output))
         },
     }
 }

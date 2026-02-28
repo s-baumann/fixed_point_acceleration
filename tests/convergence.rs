@@ -94,6 +94,38 @@ fn max_iter_is_respected() {
     assert_eq!(res.inputs.len(), max_iter);
 }
 
+/// When the function itself returns NaN (e.g. sqrt of a negative number), the iteration
+/// should stop immediately and report FunctionFailure rather than propagating NaN.
+#[test]
+fn function_failure_on_nan_output() {
+    // g(x) = sqrt(x): undefined (NaN) for negative inputs.
+    let res = fixed_point(
+        |x: &Array1<f64>| x.mapv(f64::sqrt),
+        array![-1.0],
+        opts(Algorithm::Simple),
+    );
+    assert_eq!(res.status, TerminationStatus::FunctionFailure);
+    // History up to the failure is preserved (no iterates pushed for the failing call).
+    assert!(res.inputs.is_empty());
+}
+
+/// Aitken on a linear-stride function (g(x) = x + 1) should return NumericalFailure
+/// rather than propagating NaN/Inf.
+/// The Aitken denominator is Δ²x = g(g(x)) − 2·g(x) + x = (x+2) − 2(x+1) + x = 0,
+/// while the residual is always 1 so convergence is never reached first.
+#[test]
+fn aitken_numerical_failure_on_zero_denominator() {
+    let stride = |x: &Array1<f64>| x + 1.0;
+    let res = fixed_point(
+        stride,
+        array![0.0],
+        FixedPointOptions { algorithm: Algorithm::Aitken, ..Default::default() },
+    );
+    assert_eq!(res.status, TerminationStatus::NumericalFailure);
+    // History up to the failure point is preserved and available for fixed_point_from.
+    assert!(!res.inputs.is_empty());
+}
+
 // ── Scalar convergence: Babylonian √10 ───────────────────────────────────────
 
 #[test]

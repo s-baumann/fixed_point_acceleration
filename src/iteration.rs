@@ -1,6 +1,6 @@
 use ndarray::Array1;
 use crate::{FixedPointOptions, FixedPointResults, TerminationStatus};
-use crate::ii_acceleration::get_new_input;
+use crate::acceleration::get_new_input;
 
 /// Find a fixed point of `func` starting from `x0`.
 pub fn fixed_point<F>(
@@ -55,6 +55,13 @@ where
     for iter in 0..options.max_iter {
         let current_output = func(&current_input);
 
+        if !current_output.iter().all(|v| v.is_finite()) {
+            return FixedPointResults {
+                inputs, outputs, convergence_vector,
+                status: TerminationStatus::FunctionFailure,
+            };
+        }
+
         let convergence: f64 = (&current_output - &current_input)
             .mapv(|x| x.abs())
             .mean()
@@ -73,8 +80,15 @@ where
             };
         }
 
-        // Slice to only this algorithm's history so k counts from 1
-        let proposed = get_new_input(&inputs[prior_len..], &outputs[prior_len..], &options);
+        // Slice to only this algorithm's history so k counts from 1.
+        // None means the acceleration step produced a non-finite value.
+        let Some(proposed) = get_new_input(&inputs[prior_len..], &outputs[prior_len..], &options)
+        else {
+            return FixedPointResults {
+                inputs, outputs, convergence_vector,
+                status: TerminationStatus::NumericalFailure,
+            };
+        };
         current_input = if options.dampening == 1.0 {
             proposed
         } else {
