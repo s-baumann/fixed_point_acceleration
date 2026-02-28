@@ -33,17 +33,12 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
-
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-
       - name: Test with coverage
         run: cargo llvm-cov --all-features --lcov --output-path lcov.info
-
-      - name: Upload coverage to Codecov
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: s-baumann/fixed_point_acceleration
-          files: lcov.info
-          fail_ci_if_error: false
